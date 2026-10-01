@@ -12,7 +12,7 @@ Every note you eat plays the next step of the level's musical scale. Complete th
 | --- | --- |
 | QUEST | 13 levels from The Meadow to The Heart. You keep half your length at each door; dying shrinks you back to a hatchling. 3 lives, +1 every 3 levels. Levels you've reached can be picked as the start. Clearing The Heart loops back, faster. |
 | DESCENT | Endless procedural mazes, each deeper than the last. One life. |
-| CLASSIC | Plain snake: one field, notes forever, faster every 5 notes. |
+| CLASSIC | Plain snake on one open field. Every scale you finish modulates to the next key round the circle of fifths and a new mode — pentatonic, major, mixolydian, dorian, minor, blues, … up to chromatic — and the game gets faster. |
 
 **Seed:** *Daily* gives everyone the same labyrinths for the day.
 

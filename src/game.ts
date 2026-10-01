@@ -309,8 +309,8 @@ export class Game {
     this.timer = 0;
   }
 
-  private tempo(notes = 0) {
-    const classic = this.mode.id === 'classic' ? Math.min(0.45, Math.floor(notes / 5) * 0.05) : 0;
+  private tempo(round = 0) {
+    const classic = this.mode.id === 'classic' ? Math.min(0.45, round * 0.05) : 0;
     return 0.92 + this.settings.speed * 0.04 + this.loop * 0.05 + classic;
   }
 
@@ -318,10 +318,10 @@ export class Game {
     const w = this.world!;
     const tune = this.tuneFor(w.def);
     if (tune < 0) return;
-    music.setKey(w.def.root);
-    music.setTempo(this.tempo());
+    music.setKey(w.root);
+    music.setTempo(this.tempo(w.round));
     music.setIntensity(intensityFor(w.snake.length + w.grow));
-    music.setSequence(w.def.root, w.def.scale.steps, w.melody);
+    music.setSequence(w.root, w.scale.steps, w.melody);
     music.play(tune, true);
   }
 
@@ -355,8 +355,9 @@ export class Game {
     if (w.state === 'play') music.setIntensity(intensityFor(w.snake.length));
     if (w.melody.length !== this.melodyLength) {
       this.melodyLength = w.melody.length;
-      music.setSequence(w.def.root, w.def.scale.steps, w.melody);
-      music.setTempo(this.tempo(w.notesGot));
+      music.setKey(w.root);
+      music.setSequence(w.root, w.scale.steps, w.melody);
+      music.setTempo(this.tempo(w.round));
     }
 
     if (w.state === 'done') this.levelCleared();
@@ -458,7 +459,7 @@ export class Game {
     const entry: ScoreEntry = {
       name: '',
       score: this.score,
-      level: this.mode.id === 'classic' ? (w?.notesGot ?? 0) : this.levelNumber,
+      level: this.mode.id === 'classic' ? (w?.notesTotal ?? 0) : this.levelNumber,
       length: this.maxLength,
       speed: this.settings.speed + 1,
     };

@@ -1,6 +1,6 @@
 // One level in play: the snake, its notes, and everything in the labyrinth with it.
 import { Rng } from './rng';
-import { COLS, ROWS, FLOOR, WALL, GATE_A, GATE_B, LevelDef, cellAt, cx, cy } from './levels';
+import { COLS, ROWS, FLOOR, WALL, GATE_A, GATE_B, LevelDef, Scale, NOTE_NAMES, cellAt, cx, cy, classicKey } from './levels';
 import { sfx } from './audio';
 
 export type Dir = 0 | 1 | 2 | 3;
@@ -55,7 +55,7 @@ export interface WorldOptions {
   interval: number;
   /** Segments gained per note. */
   grow: number;
-  /** Classic: no exit, notes forever, speeds up. */
+  /** Classic: no exit; each finished scale modulates to the next key and speeds up. */
   endless: boolean;
   /** Score multiplier from the speed setting. */
   points: number;
@@ -89,8 +89,15 @@ export class World {
   moveTimer = 0;
   boosting = false;
 
+  /** The scale being played; classic mode moves on to a new one after each. */
+  scale: Scale;
+  root: number;
+  /** Classic: scales finished so far. */
+  round = 0;
   notesNeeded: number;
   notesGot = 0;
+  /** Notes eaten across all scales. */
+  notesTotal = 0;
   note = -1;
   items: Item[] = [];
   exit = -1;
@@ -128,7 +135,9 @@ export class World {
     }
     this.gateOpen = new Uint8Array(this.grid.length);
     for (let c = 0; c < this.grid.length; c++) this.gateOpen[c] = this.grid[c] === GATE_A ? 1 : 0;
-    this.notesNeeded = opt.endless ? Infinity : def.scale.steps.length + 1;
+    this.scale = def.scale;
+    this.root = def.root;
+    this.notesNeeded = def.scale.steps.length + 1;
     if (def.features.minotaur) {
       const dist = this.distances(this.start, (c) => !this.solid(c));
       let lair = this.start;
@@ -235,7 +244,7 @@ export class World {
 
   interval() {
     let base = this.opt.interval;
-    if (this.opt.endless) base = Math.max(3, base - Math.floor(this.notesGot / 5));
+    if (this.opt.endless) base = Math.max(3, base - this.round);
     return this.boosting ? Math.max(2, base >> 1) : base;
   }
 
@@ -336,25 +345,39 @@ export class World {
   }
 
   private eatNote() {
-    const { scale, root } = this.def;
-    const i = this.notesGot++;
-    const degree = this.opt.endless ? pentatonicWalk(i) : i;
+    const { scale, root } = this;
+    // A new scale starts its own phrase for the sequencer.
+    if (this.notesGot === 0) this.melody = [];
+    const degree = this.notesGot++;
+    this.notesTotal++;
     this.melody.push(degree);
     sfx.note(root, scale.steps, degree);
     this.grow += this.opt.grow;
-    const tier = this.opt.endless ? 1 + Math.floor(this.notesGot / 5) : this.opt.number;
+    const tier = this.opt.endless ? this.round + 1 : this.opt.number;
     const pts = this.score(10 * tier);
     this.popup(`+${pts}`, this.note, this.def.theme.skin[0]);
     this.burst(this.note, '#fcfcfc', 12);
 
-    if (this.notesGot >= this.notesNeeded) {
+    if (this.notesGot < this.notesNeeded) this.placeNote();
+    else if (this.opt.endless) {
+      sfx.scale(root, scale.steps);
+      this.score(100 * tier);
+      this.round++;
+      const next = classicKey(this.round, this.opt.rng);
+      this.scale = next.scale;
+      this.root = next.root;
+      this.notesGot = 0;
+      this.notesNeeded = next.scale.steps.length + 1;
+      this.popup(`${NOTE_NAMES[next.root]} ${next.scale.name}`, this.head, '#f8d838');
+      this.placeNote();
+    } else {
       this.note = -1;
       this.exit = this.freeCell(0, true);
       sfx.scale(root, scale.steps);
       this.score(100 * this.opt.number);
       this.popup('SCALE COMPLETE', this.head, '#f8d838');
       if (this.def.features.thread) this.threadTimer = Math.max(this.threadTimer, 180);
-    } else this.placeNote();
+    }
 
     const f = this.def.features;
     if (f.thread && this.notesGot % 3 === 0 && !this.items.some((it) => it.kind === 'thread')) this.spawnItem('thread');
@@ -567,10 +590,4 @@ export class World {
     }
     this.popups = this.popups.filter((p) => p.life > 0);
   }
-}
-
-/** Classic mode walks up and down the pentatonic scale forever. */
-function pentatonicWalk(i: number) {
-  const k = i % 10;
-  return k <= 5 ? k : 10 - k;
 }

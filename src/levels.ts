@@ -418,7 +418,20 @@ export function endlessLevel(depth: number, rng: Rng): LevelDef {
   };
 }
 
-/** The classic game: one walled field, notes forever. */
+// Classic climbs this ladder of scales, one key further round the circle of fifths each time.
+const CLASSIC_LADDER = [
+  SCALES.pentatonic, SCALES.ionian, SCALES.mixolydian, SCALES.dorian, SCALES.aeolian, SCALES.blues, SCALES.lydian,
+  SCALES.phrygian, SCALES.harmonic, SCALES.hungarian, SCALES.wholetone, SCALES.locrian, SCALES.chromatic,
+];
+
+/** Key and scale of classic round `round` (0-based); past the ladder they're picked at random. */
+export function classicKey(round: number, rng: Rng): { root: number; scale: Scale } {
+  const root = (round * 7) % 12;
+  if (round < CLASSIC_LADDER.length) return { root, scale: CLASSIC_LADDER[round] };
+  return { root, scale: ENDLESS_SCALES[Math.floor(rng() * ENDLESS_SCALES.length)] };
+}
+
+/** The classic game: one walled field, scale after scale. */
 export const CLASSIC: LevelDef = {
   name: 'CLASSIC', scale: SCALES.pentatonic, root: 0, features: NONE,
   theme: T('#0e2a14', '#5a8a4a', ['#f8f8f8', '#a8a8a8'], '#16361c'),

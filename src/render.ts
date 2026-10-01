@@ -424,7 +424,7 @@ function renderPlay(ctx: Ctx, game: Game, frame: number) {
 }
 
 function drawStaff(ctx: Ctx, w: World, x0: number, frame: number) {
-  const { steps } = w.def.scale;
+  const { steps } = w.scale;
   const n = w.notesNeeded;
   const width = 76;
   ctx.fillStyle = DARK;
@@ -455,16 +455,13 @@ function drawHud(ctx: Ctx, game: Game, w: World, frame: number) {
   ctx.fillRect(0, BY - 1, W, 1);
   drawText(ctx, 'SC', 4, 3, GREY);
   drawText(ctx, pad(game.score, 7), 18, 3);
-  drawText(ctx, `${NOTE_NAMES[w.def.root]} ${w.def.scale.name}`, 4, 13, YELLOW);
+  drawText(ctx, `${NOTE_NAMES[w.root]} ${w.scale.name}`, 4, 13, YELLOW);
 
-  if (w.opt.endless) {
-    drawTextCentered(ctx, `NOTES ${pad(w.notesGot, 3)}`, 132, 3);
-    drawTextCentered(ctx, `LEN ${pad(w.snake.length, 3)}`, 132, 13, GREY);
-  } else drawStaff(ctx, w, 94, frame);
+  drawStaff(ctx, w, 94, frame);
 
   const mode = game.mode.id;
   const label = mode === 'endless' ? 'DEPTH' : mode === 'classic' ? 'SPEED' : 'LV';
-  const value = mode === 'classic' ? String(1 + Math.floor(w.notesGot / 5)) : pad(w.opt.number, 2);
+  const value = mode === 'classic' ? String(1 + w.round) : pad(w.opt.number, 2);
   drawText(ctx, label, 252 - textWidth(`${label} ${value}`), 3, GREY);
   drawText(ctx, value, 252 - textWidth(value), 3);
   const lives = Math.max(0, game.lives - (w.state === 'dead' ? 1 : 0));
@@ -491,8 +488,8 @@ function drawIntro(ctx: Ctx, game: Game, w: World) {
   const head = mode === 'endless' ? `DEPTH ${w.opt.number}` : mode === 'classic' ? 'CLASSIC' : `LEVEL ${w.opt.number}`;
   drawTextCentered(ctx, head, 128, y0 + 10, GREY);
   drawTextCentered(ctx, w.def.name, 128, y0 + 22, YELLOW);
-  drawTextCentered(ctx, `${NOTE_NAMES[w.def.root]} ${w.def.scale.name}`, 128, y0 + 36);
-  const goal = w.opt.endless ? 'EAT ALL THE NOTES YOU CAN' : `EAT ${w.notesNeeded} NOTES`;
+  drawTextCentered(ctx, `${NOTE_NAMES[w.root]} ${w.scale.name}`, 128, y0 + 36);
+  const goal = w.opt.endless ? 'FINISH SCALE AFTER SCALE' : `EAT ${w.notesNeeded} NOTES`;
   drawTextCentered(ctx, goal, 128, y0 + 48, LIGHT);
   hints.forEach(([t, c], i) => drawTextCentered(ctx, t, 128, y0 + 62 + i * 10, c));
   // A bar that runs down until play starts.
@@ -533,7 +530,7 @@ function drawCurtain(ctx: Ctx, game: Game, w: World, frame: number) {
   drawTextCentered(ctx, 'GAME OVER', 128, 74, RED);
   const rows2: [string, string][] = [
     ['SCORE', String(game.score)],
-    [game.mode.id === 'classic' ? 'NOTES' : game.mode.id === 'endless' ? 'DEPTH' : 'LEVEL', String(game.mode.id === 'classic' ? w.notesGot : w.opt.number)],
+    [game.mode.id === 'classic' ? 'NOTES' : game.mode.id === 'endless' ? 'DEPTH' : 'LEVEL', String(game.mode.id === 'classic' ? w.notesTotal : w.opt.number)],
     ['LONGEST', String(game.maxLength)],
   ];
   rows2.forEach(([k, v], i) => {
