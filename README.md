@@ -55,7 +55,7 @@ The notes come from MIDI files — the crab canon and *Streets of Cairo* from [f
 
 On phones, swipe the screen or use the buttons below it.
 
-High scores (top 10 per mode) and settings are stored in your browser's local storage.
+High scores: the top 10 per mode, both worldwide and in your own browser (Up/Down switches between them on the score screen). World scores live in a small [Val Town](https://www.val.town/x/tilmanschieber/scales-scores) val with a SQLite table; your own scores and settings stay in the browser's local storage, so they still work offline.
 
 ## Development
 

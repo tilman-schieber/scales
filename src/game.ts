@@ -1,5 +1,5 @@
 import { MODES, Mode, SPEEDS, SPEED_POINTS } from './modes';
-import { loadTables, saveTables, rankFor, ScoreEntry, Tables, MAX_SCORES, load, save } from './scores';
+import { loadTables, saveTables, rankFor, ScoreEntry, Tables, MAX_SCORES, load, save, fetchGlobal, submitGlobal } from './scores';
 import { sfx, music, intensityFor, TUNE } from './audio';
 import { hashString, makeRng, randomSeed, today } from './rng';
 import { QUEST, CLASSIC, endlessLevel, LevelDef } from './levels';
@@ -102,6 +102,13 @@ export class Game {
   private melodyLength = 0;
 
   tables: Tables = loadTables();
+  /** World top 10s from the server; null until loaded or while offline. */
+  global: Tables | null = null;
+  globalState: 'loading' | 'ok' | 'offline' = 'loading';
+  /** Show the world table (true) or this browser's own (false). */
+  scoresGlobal = true;
+  /** Row of the last game in the world table, or -1. */
+  globalRank = -1;
   scoresView = 0;
   entryRank = -1;
   entryName: string[] = [];
@@ -115,6 +122,24 @@ export class Game {
 
   constructor() {
     music.enabled = !this.settings.muted;
+    this.refreshGlobal();
+  }
+
+  private async refreshGlobal() {
+    const tables = await fetchGlobal();
+    if (tables) this.global = tables;
+    this.globalState = this.global ? 'ok' : 'offline';
+  }
+
+  /** Posts a finished game to the world table and marks where it landed. */
+  private async submitGlobal(e: ScoreEntry) {
+    const mode = this.mode.id;
+    const res = await submitGlobal(mode, e);
+    if (!res) return;
+    this.global ??= Object.fromEntries(MODES.map((m) => [m.id, []])) as unknown as Tables;
+    this.global[mode] = res.top;
+    this.globalState = 'ok';
+    if (this.settings.mode === MODES.findIndex((m) => m.id === mode)) this.globalRank = res.rank;
   }
 
   get mode(): Mode {
@@ -244,8 +269,10 @@ export class Game {
       this.saveSettings();
     }
     if (pressed.has('scores')) {
+      this.refreshGlobal();
       this.scoresView = s.mode;
       this.entryRank = -1;
+      this.globalRank = -1;
       this.phase = 'scores';
       sfx.select();
     } else if (pressed.has('start')) this.startGame();
@@ -453,7 +480,9 @@ export class Game {
 
   private prepareEntry() {
     this.entryRank = -1;
+    this.globalRank = -1;
     this.scoresView = this.settings.mode;
+    this.scoresGlobal = true;
     if (this.score <= 0) return;
     const w = this.world;
     const entry: ScoreEntry = {
@@ -465,11 +494,15 @@ export class Game {
     };
     const list = this.tables[this.mode.id];
     const at = rankFor(list, entry);
-    if (at < 0) return;
+    const last = (load('scales.name') ?? '').slice(0, NAME_LEN);
+    if (at < 0) {
+      // Not a personal record, but it still goes to the world table under the last name used.
+      if (last.trim()) this.submitGlobal({ ...entry, name: last.trim() });
+      return;
+    }
     list.splice(at, 0, entry);
     list.length = Math.min(list.length, MAX_SCORES);
     this.entryRank = at;
-    const last = (load('scales.name') ?? '').slice(0, NAME_LEN);
     this.entryName = last.padEnd(NAME_LEN, ' ').split('');
     this.entryCursor = Math.min(NAME_LEN - 1, last.length);
     this.entryFresh = last.length > 0;
@@ -509,15 +542,18 @@ export class Game {
 
   private commitName() {
     const name = this.entryName.join('').trim() || '------';
-    this.tables[this.mode.id][this.entryRank].name = name;
+    const entry = this.tables[this.mode.id][this.entryRank];
+    entry.name = name;
     saveTables(this.tables);
     save('scales.name', name);
+    this.submitGlobal(entry);
     this.phase = 'scores';
     this.timer = 0;
     sfx.oneUp();
   }
 
   private showScores() {
+    this.refreshGlobal();
     this.scoresView = this.settings.mode;
     this.phase = 'scores';
     this.timer = 0;
@@ -528,7 +564,12 @@ export class Game {
     if (d) {
       this.scoresView = (this.scoresView + d + MODES.length) % MODES.length;
       this.entryRank = -1;
+      this.globalRank = -1;
       sfx.select();
+    }
+    if (pressed.has('up') || pressed.has('down')) {
+      this.scoresGlobal = !this.scoresGlobal;
+      sfx.move();
     }
     if (pressed.has('start') || pressed.has('back') || pressed.has('scores')) this.toTitle();
   }
