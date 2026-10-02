@@ -1,5 +1,5 @@
 import { MODES, Mode, SPEEDS, SPEED_POINTS } from './modes';
-import { loadTables, saveTables, rankFor, ScoreEntry, Tables, MAX_SCORES, load, save, fetchGlobal, submitGlobal } from './scores';
+import { loadTables, saveTables, rankFor, ScoreEntry, Tables, MAX_SCORES, load, save, fetchGlobal, submitGlobal, flushPending } from './scores';
 import { sfx, music, intensityFor, TUNE } from './audio';
 import { hashString, makeRng, randomSeed, today } from './rng';
 import { QUEST, CLASSIC, endlessLevel, LevelDef } from './levels';
@@ -126,6 +126,8 @@ export class Game {
   }
 
   private async refreshGlobal() {
+    // Games queued while offline go first, so the table includes them.
+    await flushPending();
     const tables = await fetchGlobal();
     if (tables) this.global = tables;
     this.globalState = this.global ? 'ok' : 'offline';
