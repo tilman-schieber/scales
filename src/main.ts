@@ -88,6 +88,48 @@ setupSwipe(canvas, (d) => {
   press(SWIPE[d]);
 });
 
+// Gamepads, in the standard mapping: d-pad or left stick to move, A or X to boost, B pauses and
+// goes back, Start pauses, Select quits from pause. In the menus A confirms; Y opens the scores on
+// the title screen. Typing a name: Up/Down pick a letter, A or Start enters it, B rubs one out.
+const STICK = 0.4;
+let padHeld = new Set<Action>();
+
+function readPads() {
+  const held = new Set<Action>();
+  const play = game.phase === 'play';
+  for (const pad of navigator.getGamepads?.() ?? []) {
+    if (!pad) continue;
+    const on = (i: number) => !!pad.buttons[i]?.pressed;
+    if (on(0)) held.add(play ? 'boost' : 'start');
+    if (on(2)) held.add('boost');
+    if (on(1)) held.add('back');
+    if (on(3)) held.add(game.phase === 'title' ? 'scores' : 'boost');
+    if (on(9)) held.add('start');
+    if (on(8)) held.add('quit');
+    const [x = 0, y = 0] = pad.axes;
+    if (on(12) || y < -STICK) held.add('up');
+    if (on(13) || y > STICK) held.add('down');
+    if (on(14) || x < -STICK) held.add('left');
+    if (on(15) || x > STICK) held.add('right');
+  }
+  return held;
+}
+
+function pollPads() {
+  const pad = readPads();
+  for (const a of pad) {
+    input.held.add(a);
+    if (padHeld.has(a)) continue;
+    unlockAudio();
+    if (game.phase === 'entry' && (a === 'start' || a === 'back')) {
+      input.typed.push(a === 'start' ? 'Enter' : 'Backspace');
+      continue;
+    }
+    press(a);
+  }
+  padHeld = pad;
+}
+
 function refreshHeld() {
   input.held.clear();
   for (const key of heldKeys.values()) {
@@ -95,6 +137,7 @@ function refreshHeld() {
     if (a) input.held.add(a);
   }
   for (const b of touchHeld) input.held.add(b.a);
+  pollPads();
 }
 
 // Fixed 60 Hz simulation.
