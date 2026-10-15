@@ -2,8 +2,8 @@ import { Game, Action, Input } from './game';
 import { render, W, H } from './render';
 import { unlockAudio, music } from './audio';
 import { setupTouch, setupSwipe, TouchButton } from './touch';
-import { setupHidPad, hidDpad } from './hidpad';
 import type { Dir } from './world';
+import { setupHidPad, padAxes } from './hidpad';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
@@ -108,18 +108,12 @@ function readPads() {
     if (on(3)) held.add(game.phase === 'title' ? 'scores' : 'boost');
     if (on(9)) held.add('start');
     if (on(8)) held.add('quit');
-    const [x = 0, y = 0] = pad.axes;
+    const [x = 0, y = 0] = padAxes(pad);
     if (on(12) || y < -STICK) held.add('up');
     if (on(13) || y > STICK) held.add('down');
     if (on(14) || x < -STICK) held.add('left');
     if (on(15) || x > STICK) held.add('right');
   }
-  // ?webhid: the d-pad of a pad the Gamepad API can't read (see hidpad.ts).
-  const d = hidDpad();
-  if (d?.y === -1) held.add('up');
-  if (d?.y === 1) held.add('down');
-  if (d?.x === -1) held.add('left');
-  if (d?.x === 1) held.add('right');
   return held;
 }
 

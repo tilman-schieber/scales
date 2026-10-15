@@ -1,7 +1,7 @@
 // WebHID fallback for the d-pad of the generic DragonRise "USB Gamepad" (0079:0011), switched on with
 // ?webhid in the URL. Its HID descriptor names four axes X and one Y; Chrome on macOS drops them, so
-// the Gamepad API sees no d-pad at all. Reading the raw reports gets it back: byte 3 is left/right,
-// byte 4 up/down, each 00 / 7f / ff.
+// the Gamepad API sees the pad and its buttons but no d-pad. Reading the raw reports gets it back:
+// byte 3 is left/right, byte 4 up/down, each 00 / 7f / ff.
 
 // TypeScript's DOM lib has no WebHID types yet; this is the little we use.
 interface HIDDevice extends EventTarget {
@@ -28,9 +28,12 @@ const axis = (b: number) => (b < 0x40 ? -1 : b > 0xc0 ? 1 : 0);
 let dpad = { x: 0, y: 0 };
 let device: HIDDevice | null = null;
 
-/** The d-pad as -1/0/1 per axis, or null when the fallback is off or no pad is connected. */
-export function hidDpad(): { x: number; y: number } | null {
-  return device ? dpad : null;
+/**
+ * A pad's axes, with the d-pad read over WebHID standing in as the left stick (-1/0/1) when that pad
+ * is connected through the fallback. Chrome names it "USB Gamepad (Vendor: 0079 Product: 0011)".
+ */
+export function padAxes(pad: Gamepad): readonly number[] {
+  return device && /0079.*0011/i.test(pad.id) ? [dpad.x, dpad.y] : pad.axes;
 }
 
 /** Turns the fallback on when the URL has ?webhid: reuses a pad granted before, or offers a button. */
