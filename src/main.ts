@@ -2,6 +2,7 @@ import { Game, Action, Input } from './game';
 import { render, W, H } from './render';
 import { unlockAudio, music } from './audio';
 import { setupTouch, setupSwipe, TouchButton } from './touch';
+import { setupHidPad, hidDpad } from './hidpad';
 import type { Dir } from './world';
 
 const canvas = document.getElementById('screen') as HTMLCanvasElement;
@@ -9,6 +10,7 @@ const ctx = canvas.getContext('2d')!;
 ctx.imageSmoothingEnabled = false;
 
 const touchPanel = setupTouch(onTouch);
+setupHidPad();
 
 function resize() {
   const reserved = touchPanel ? touchPanel.el.offsetHeight + 8 : 0;
@@ -112,6 +114,12 @@ function readPads() {
     if (on(14) || x < -STICK) held.add('left');
     if (on(15) || x > STICK) held.add('right');
   }
+  // ?webhid: the d-pad of a pad the Gamepad API can't read (see hidpad.ts).
+  const d = hidDpad();
+  if (d?.y === -1) held.add('up');
+  if (d?.y === 1) held.add('down');
+  if (d?.x === -1) held.add('left');
+  if (d?.x === 1) held.add('right');
   return held;
 }
 
