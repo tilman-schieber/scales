@@ -1,5 +1,5 @@
 // One level in play: the snake, its notes, and everything in the labyrinth with it.
-import { Rng } from './rng';
+import { Rng } from 'arcade-kit/rng';
 import { COLS, ROWS, FLOOR, WALL, GATE_A, GATE_B, LevelDef, Scale, NOTE_NAMES, cellAt, cx, cy, classicKey } from './levels';
 import { sfx } from './audio';
 

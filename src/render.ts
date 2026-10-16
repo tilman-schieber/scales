@@ -4,10 +4,11 @@ import { COLS, ROWS, WALL, NOTE_NAMES, QUEST, cellAt, cx, cy } from './levels';
 import { MODES, SPEED_NAMES, SPEED_POINTS } from './modes';
 import { MAX_SCORES } from './scores';
 import { HELP_PAGES, wrapText } from './help';
-import { drawText, drawTextCentered, textWidth } from './font';
-import { Ctx, W, H, WHITE, RED, GREY, LIGHT, DARK, YELLOW, GOLD, mix, drawBox, drawSprite, pad, hash } from './draw';
+import { drawText, drawTextCentered, textWidth } from 'arcade-kit/font';
+import { Ctx, WHITE, RED, GREY, LIGHT, DARK, YELLOW, GOLD, mix, drawBox, drawSprite, pad, hash } from 'arcade-kit/draw';
 
-export { W, H };
+export const W = 256;
+export const H = 224;
 
 /** Board origin on screen: the HUD takes the top 24 pixels. */
 const BY = 24;

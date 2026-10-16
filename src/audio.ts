@@ -1,67 +1,10 @@
-// Tiny Web Audio chiptune synth: SFX, eaten notes that climb the level's scale, and music that
-// swells as the snake grows: public-domain tunes (notes taken from MIDI files, see
-// tools/midi2ts.py) in chiptune arrangements, or a sequencer that plays back the notes you've eaten.
+// SCALES' sounds and music on arcade-kit's chiptune engine: SFX, eaten notes that climb the level's
+// scale, and music that swells as the snake grows: public-domain tunes (notes taken from MIDI files,
+// see tools/midi2ts.py) in chiptune arrangements, or a sequencer that plays back the notes you've eaten.
+import { audioNow, arp, createMusic, midiHz, noise, onsets, perc, tone, Tune } from 'arcade-kit/audio';
 import { BOLERO_A, BOLERO_B, BOLERO_OSTINATO, BOLERO_SNARE, CRAB, CAIRO } from './tunes';
 
-let ctx: AudioContext | null = null;
-let master: GainNode;
-let noiseBuf: AudioBuffer;
-
-export function unlockAudio() {
-  // iOS: play through the silent switch like a media app (Safari 16.4+).
-  const session = (navigator as { audioSession?: { type: string } }).audioSession;
-  if (session && session.type !== 'playback') session.type = 'playback';
-  if (!ctx) {
-    ctx = new AudioContext();
-    master = ctx.createGain();
-    master.gain.value = 0.22;
-    master.connect(ctx.destination);
-    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-    const d = noiseBuf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-  }
-  if (ctx.state === 'suspended') void ctx.resume();
-}
-
-export const midiHz = (m: number) => 440 * 2 ** ((m - 69) / 12);
-
-function tone(freq: number, dur: number, type: OscillatorType, vol: number, at = 0, slideTo?: number) {
-  if (!ctx) return;
-  const t = at || ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const g = ctx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, t);
-  if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
-  g.gain.setValueAtTime(vol, t);
-  g.gain.setValueAtTime(vol, t + dur * 0.7);
-  g.gain.linearRampToValueAtTime(0, t + dur);
-  osc.connect(g).connect(master);
-  osc.start(t);
-  osc.stop(t + dur + 0.01);
-}
-
-function noise(dur: number, vol: number, cutoff: number, at = 0, type: BiquadFilterType = 'lowpass') {
-  if (!ctx) return;
-  const t = at || ctx.currentTime;
-  const src = ctx.createBufferSource();
-  src.buffer = noiseBuf;
-  const f = ctx.createBiquadFilter();
-  f.type = type;
-  f.frequency.value = cutoff;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(vol, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  src.connect(f).connect(g).connect(master);
-  src.start(t, Math.random() * 0.5);
-  src.stop(t + dur);
-}
-
-function arp(notes: number[], step: number, vol = 0.25, type: OscillatorType = 'square') {
-  if (!ctx) return;
-  const t = ctx.currentTime;
-  notes.forEach((n, i) => n && tone(midiHz(n), step, type, vol, t + i * step));
-}
+export { unlockAudio } from 'arcade-kit/audio';
 
 /** Midi note of scale degree `i` (wrapping into higher octaves) above a pitch class root. */
 export function scaleMidi(root: number, steps: number[], i: number, base = 60) {
@@ -76,9 +19,9 @@ export const sfx = {
   pause: () => arp([84, 79], 0.06, 0.18),
   /** The i-th note of the level's scale, with a little echo. */
   note(root: number, steps: number[], i: number) {
-    if (!ctx) return;
+    const t = audioNow();
+    if (t === null) return;
     const f = midiHz(scaleMidi(root, steps, i, 72));
-    const t = ctx.currentTime;
     tone(f, 0.22, 'square', 0.26, t);
     tone(f * 2, 0.05, 'square', 0.1, t);
     tone(f, 0.18, 'triangle', 0.3, t + 0.16);
@@ -106,7 +49,8 @@ export const sfx = {
   },
   heartbeat: (vol: number) => {
     tone(55, 0.08, 'sine', vol, 0, 40);
-    if (ctx) tone(50, 0.08, 'sine', vol * 0.7, ctx.currentTime + 0.14, 38);
+    const t = audioNow();
+    if (t !== null) tone(50, 0.08, 'sine', vol * 0.7, t + 0.14, 38);
   },
   labrys: () => arp([64, 67, 71, 76, 79, 83], 0.04, 0.24),
   thread: () => arp([79, 83, 86, 91], 0.05, 0.2, 'triangle'),
@@ -120,39 +64,11 @@ export const sfx = {
 };
 
 // ---------- music ----------
-// Each tune is a loop of time units. Intensity 0-5 comes from the snake's length:
-// instruments join as it grows. Tunes are transposed to the level's key.
-
-interface Tune {
-  name: string;
-  /** Seconds per unit at tempo 1. */
-  unit: number;
-  length: number;
-  /** Schedule whatever sounds at unit i (already wrapped into the loop). */
-  play(i: number, t: number, lv: number, tr: number, unitSec: number): void;
-}
-
-/** Indexes flat [onset, midi, length] triples by onset. */
-function onsets(flat: number[], offset = 0, map = new Map<number, [number, number][]>()) {
-  for (let k = 0; k < flat.length; k += 3) {
-    const at = flat[k] + offset;
-    if (!map.has(at)) map.set(at, []);
-    map.get(at)!.push([flat[k + 1], flat[k + 2]]);
-  }
-  return map;
-}
+// Intensity 0-5 comes from the snake's length: instruments join as it grows. Tunes are transposed
+// to the level's key.
 
 /** Semitone shift from a tune's own key to the level's, kept within a tritone. */
 const shiftTo = (transpose: number, home: number) => ((transpose - home + 18) % 12) - 6;
-
-const perc = {
-  snare: (t: number, vol: number) => noise(0.05, vol, 7000, t, 'highpass'),
-  hat: (t: number, vol: number) => noise(0.03, vol, 9000, t, 'highpass'),
-  kick: (t: number, vol: number) => {
-    tone(120, 0.12, 'sine', vol, t, 40);
-    noise(0.04, vol * 0.4, 300, t);
-  },
-};
 
 // --- Ravel, Bolero. Theme A (flute) then theme B (bassoon), each in an 18-bar window
 // over the pizzicato ostinato and the snare. Unit: 1/12 beat, 36 per 3/4 bar.
@@ -319,61 +235,12 @@ export function intensityFor(length: number) {
   return length >= 44 ? 5 : length >= 32 ? 4 : length >= 22 ? 3 : length >= 12 ? 2 : length >= 6 ? 1 : 0;
 }
 
-let musicOn = true;
-let playing = false;
-let tune = 0;
-let unit = 0;
-let nextTime = 0;
-let timer: number | undefined;
-let transpose = 0;
-let intensity = 0;
-let tempo = 1;
+const player = createMusic(TUNES);
 
-function schedule() {
-  if (!ctx) return;
-  const tn = TUNES[tune];
-  while (nextTime < ctx.currentTime + 0.12) {
-    const u = tn.unit / tempo;
-    tn.play(unit % tn.length, nextTime, intensity, transpose, u);
-    unit++;
-    nextTime += u;
-  }
-}
-
-export const music = {
-  /** Start (or keep playing) a tune; switching tunes starts it from the top. */
-  play(which = tune, restart = false) {
-    if (which !== tune || restart) {
-      this.halt();
-      tune = which;
-      unit = 0;
-    }
-    playing = true;
-    if (!ctx || !musicOn || timer !== undefined) return;
-    nextTime = ctx.currentTime + 0.05;
-    timer = window.setInterval(schedule, 25);
-  },
-  resume() {
-    if (playing) this.play();
-  },
-  stop() {
-    playing = false;
-    this.halt();
-  },
-  halt() {
-    if (timer !== undefined) clearInterval(timer);
-    timer = undefined;
-  },
+export const music = Object.assign(player, {
   /** Transpose so the tune's tonic is the given pitch class. */
   setKey(pitchClass: number) {
-    transpose = pitchClass > 6 ? pitchClass - 12 : pitchClass;
-  },
-  setIntensity(lv: number) {
-    intensity = lv;
-  },
-  /** Tempo multiplier. */
-  setTempo(mult: number) {
-    tempo = mult;
+    player.setTranspose(pitchClass > 6 ? pitchClass - 12 : pitchClass);
   },
   /** The sequencer's scale and the degrees eaten so far. */
   setSequence(root: number, steps: number[], degrees: number[]) {
@@ -387,22 +254,4 @@ export const music = {
     demoLoops = 0;
     loadPattern(patterns[0]);
   },
-  toggle() {
-    musicOn = !musicOn;
-    if (!musicOn) this.halt();
-    else if (playing) this.play();
-    return musicOn;
-  },
-  set enabled(on: boolean) {
-    if (on !== musicOn) this.toggle();
-  },
-  get enabled() {
-    return musicOn;
-  },
-  get running() {
-    return timer !== undefined;
-  },
-  get tune() {
-    return tune;
-  },
-};
+});

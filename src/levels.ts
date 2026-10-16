@@ -1,5 +1,5 @@
 // Level layouts: a few hand-built gardens, then braided mazes that get ever narrower.
-import { Rng } from './rng';
+import { Rng } from 'arcade-kit/rng';
 
 export const COLS = 32;
 export const ROWS = 25;
