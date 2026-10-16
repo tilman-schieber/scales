@@ -55,7 +55,7 @@ The notes come from MIDI files — the crab canon and *Streets of Cairo* from [f
 
 A gamepad works too: stick or d-pad to turn, A or X to boost, B to pause or go back, Start to pause and Select to quit from the pause screen. In the menus A confirms, and on the title screen Y shows the high scores; when typing a name, Up/Down pick a letter, A enters it and B rubs one out.
 
-**D-pad not working on a Mac?** Cheap SNES-style USB pads (DragonRise, `0079:0011`, sold as "USB Gamepad") describe their d-pad in a way Chrome on macOS can't read: it sees the buttons but not the d-pad. Open the game with `?webhid` (https://gh.tschieber.de/scales/?webhid) and click CONNECT GAMEPAD at the top right to read the d-pad over WebHID instead, then press one of the pad's buttons so the browser reports the pad. Chrome remembers the pad after that. Chrome and Edge only, as other browsers have no WebHID. The code is in `src/hidpad.ts`.
+**D-pad not working on a Mac?** Cheap SNES-style USB pads (DragonRise, `0079:0011`, sold as "USB Gamepad") describe their d-pad in a way Chrome on macOS can't read: it sees the buttons but not the d-pad. Open the game with `?webhid` (https://gh.tschieber.de/scales/?webhid) and click CONNECT GAMEPAD at the top right to read the d-pad over WebHID instead, then press one of the pad's buttons so the browser reports the pad. Chrome remembers the pad after that. Chrome and Edge only, as other browsers have no WebHID. The code is in [arcade-kit](https://github.com/tilman-schieber/arcade-kit)'s `hidpad` module.
 
 On phones, swipe the screen or use the buttons below it.
 
